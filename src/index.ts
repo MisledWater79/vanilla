@@ -2,21 +2,70 @@ import {
   Astar,
   BlockIdentifier,
   BlockPermutation,
+  InternalProvider,
+  LevelDBProvider,
   Node,
-  Player
+  Player,
+  WorldEvent,
+  WorldProperties
 } from "@serenityjs/core";
 import { Plugin, PluginEvents } from "@serenityjs/plugins";
-import { Vector3f } from "@serenityjs/protocol";
+import { DimensionType, Vector3f } from "@serenityjs/protocol";
 
 import { WalkEvaluator } from "./mob";
+import { OverworldGenerator } from "./world";
+
+const VanillaWorldProperties: WorldProperties = {
+  identifier: "vanilla",
+  seed: Math.floor(Math.random() * 2 ** 32),
+  saveInterval: 5,
+  dimensions: [
+    {
+      identifier: "overworld",
+      type: DimensionType.Overworld,
+      generator: "overworld",
+      viewDistance: 5,
+      simulationDistance: 10,
+      spawnPosition: [0, 32767, 0]
+    },
+    // {
+    //   identifier: "nether",
+    //   type: DimensionType.Nether,
+    //   generator: "overworld",
+    //   viewDistance: 10,
+    //   simulationDistance: 10,
+    //   spawnPosition: [0, 32767, 0]
+    // },
+    // {
+    //   identifier: "end",
+    //   type: DimensionType.End,
+    //   generator: "overworld",
+    //   viewDistance: 10,
+    //   simulationDistance: 10,
+    //   spawnPosition: [0, 32767, 0]
+    // }
+  ]
+};
 
 class VanillaPlugin extends Plugin implements PluginEvents {
   public constructor() {
     super("vanilla", "1.0.0");
   }
 
+  public onInitialize(): void  {
+    this.serenity.registerGenerator(OverworldGenerator);
+    this.serenity.registerProvider(InternalProvider, { path: "./worlds" });
+    let vanillaWorld = InternalProvider.create(this.serenity, { path: "./worlds" }, VanillaWorldProperties);
+    this.serenity.registerWorld(vanillaWorld);
+  }
+
   public onStartUp(plugin: Plugin): void {
     plugin.serenity.worlds.forEach((world) => {
+      world.after(WorldEvent.PlayerJoin, (args) => {
+        let p = args.player;
+        p.teleport(new Vector3f(0, 80, 0));
+        p.gamemode = 1;
+      })
       world.commands.register("testing", "Testing command", ({ origin }) => {
         if (!(origin instanceof Player)) return;
         const evaluator = new WalkEvaluator(origin);
